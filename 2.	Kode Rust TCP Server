@@ -1,0 +1,17 @@
+Dependensi Cargo.toml 
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+influxdb = "0.4"
+Ketika sudah di tahapan di atas makan lanjut ke pengimputan program lagi :
+ use tokio::io::{AsyncBufReadExt, BufReader};
+use influxdb::{Client, WriteQueryDependensi Cargo.toml
+ tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+influxdb = "0.4"
+Ketika sudah di tahapan di atas makan lanjut ke pengimputan program lagi
+use tokio::io::{AsyncBufReadExt, BufReader};
+use influxdb::{Client, WriteQuery, Timestamp};
+ struct SensorData {
+ humidity: f32,
+ , Timestamp};
+
