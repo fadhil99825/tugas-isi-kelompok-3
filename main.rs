@@ -1,91 +1,90 @@
-use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write};
-use std::thread;
-use serde::Deserialize;
-use reqwest::blocking::Client;
-
-#[derive(Deserialize, Debug)]
-struct SensorData {
-    timestamp: String,
-    sensor_id: String,
-    location: String,
-    process_stage: String,
-    temperature_celsius: f64,
-    humidity_percent: f64,
-}
-
-fn handle_client(mut stream: TcpStream) {
-    let mut buffer = [0; 1024];
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                let data = String::from_utf8_lossy(&buffer[..n]).to_string();
-                println!("Received: {}", data);
-
-                if let Err(e) = write_to_influx_v2(&data) {
-                    eprintln!("InfluxDB Error: {}", e);
-                }
-
-                stream.write_all(b"OK\n").unwrap_or_default();
-            }
-            Err(_) => break,
-        }
-    }
-}
-
-fn write_to_influx_v2(data: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let token = "9BuYLHAV7W_q1-V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw==";
-    let org = "rival team";
-    let bucket = "sensor_data";
-    let url = format!(
-        "http://localhost:8086/api/v2/write?org={}&bucket={}&precision=s",
-        org, bucket
-    );
-
-    // Parse JSON string
-    let sensor: SensorData = serde_json::from_str(data)?;
-
-    // Format line protocol
-    let line = format!(
-        "sensor_data,sensor_id={},location={},process_stage={} temperature_celsius={},humidity_percent={} {}",
-        sensor.sensor_id.replace(" ", "\\ "),
-        sensor.location.replace(" ", "\\ "),
-        sensor.process_stage.replace(" ", "\\ "),
-        sensor.temperature_celsius,
-        sensor.humidity_percent,
-        chrono::DateTime::parse_from_rfc3339(&sensor.timestamp)?.timestamp()
-    );
-
-    let client = Client::new();
-    let res = client
-        .post(&url)
-        .header("Authorization", format!("Token {}", token))
-        .header("Content-Type", "text/plain")
-        .body(line)
-        .send()?;
-
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        Err(format!("Failed with status: {}", res.status()).into())
-    }
-}
-
-fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("0.0.0.0:7878")?;
-    println!("Server listening on port 7878");
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(|| handle_client(stream));
-            }
-            Err(e) => {
-                eprintln!("Connection failed: {}", e);
-            }
-        }
-    }
-
-    Ok(())
-}
+ use tokio::net::TcpListener; 
+2. use tokio::io::{AsyncBufReadExt, BufReader}; 
+3. use serde::Deserialize; 
+4. use reqwest::Client; 
+5.   
+6. #[derive(Deserialize, Debug)] 
+7. struct SensorData { 
+8.     timestamp: String, 
+9.     sensor_id: String, 
+10.     location: String, 
+11.     process_stage: String, 
+12.     temperature_celsius: f32, 
+13.     humidity_percent: f32, 
+14. } 
+15.   
+16. #[tokio::main] 
+17. async fn main() -> Result<(), Box<dyn std::error::error="">> { 
+18.     let listener = TcpListener::bind("0.0.0.0:9000").await?; 
+19.     let influx_url = 
+"http://localhost:8086/api/v2/write?org=ITS&bucket=sensor&precision=s"; 
+20.     let token = 
+"7cxktB5BI0lWjTM77vAqPL8WaTdXz4X7GLTqA63JI6JF4jjaqe2yw4LgDqCTg9U_JpsvaSgT8mjeS
+ VDLDMv59Q=="; 
+21.     let client = Client::new(); 
+22.   
+23.     println!("🚪 TCP Server listening on port 9000..."); 
+24.   
+25.     loop { 
+26.         let (socket, addr) = listener.accept().await?; 
+27.         println!("🔌 Koneksi masuk dari {}", addr); 
+28.   
+29.         let client = client.clone(); 
+30.         let influx_url = influx_url.to_string(); 
+31.         let token = token.to_string(); 
+32.   
+33.         tokio::spawn(async move { 
+34.             let reader = BufReader::new(socket); 
+35.             let mut lines = reader.lines(); 
+36.   
+37.             while let Ok(Some(line)) = lines.next_line().await { 
+38.                 match serde_json::from_str::<sensordata>(&line) { 
+39.                     Ok(data) => { 
+40.                         println!("📥 Data diterima: {:?}", data); 
+41.   
+42.                         // Line Protocol format: measurement,tag1=value1 
+field1=val1,field2=val2 timestamp 
+43.                         let line = format!( 
+44.                             "monitoring,sensor_id={},location={},stage={
+ } temperature={},humidity={} {}", 
+45.                             data.sensor_id.replace(" ", "\\ "), 
+46.                             data.location.replace(" ", "\\ "), 
+47.                             data.process_stage.replace(" ", "\\ "), 
+48.                             data.temperature_celsius, 
+49.                             data.humidity_percent, 
+50.                             chrono::DateTime::parse_from_rfc3339(&data.t
+ imestamp) 
+51.                                 .unwrap() 
+52.                                 .timestamp() 
+53.                         ); 
+54.   
+55.                         // Kirim ke InfluxDB 
+56.                         let res = client.post(&influx_url) 
+57.                             .header("Authorization", format!("Token {}", 
+token)) 
+58.                             .header("Content-Type", "text/plain") 
+59.                             .body(line) 
+60.                             .send() 
+61.                             .await; 
+62.   
+63.                         match res { 
+64.                             Ok(resp) if resp.status().is_success() => { 
+65.                                 println!("✅ Data dikirim ke 
+InfluxDB"); 
+66.                             }, 
+67.                             Ok(resp) => { 
+68.                                 println!("⚠ Gagal kirim ke InfluxDB: 
+{}", resp.status()); 
+69.                             }, 
+70.                             Err(e) => { 
+71.                                 println!("❌ HTTP Error: {}", e); 
+72.                             } 
+73.                         } 
+74.                     }, 
+75.                     Err(e) => println!("❌ Format JSON tidak valid: 
+{}", e), 
+76.                 } 
+77.             } 
+78.         }); 
+79.     } 
+80. }</sensordata></dyn> 
