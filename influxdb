@@ -1,0 +1,161 @@
+import sys
+import threading
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout
+)
+from PyQt5.QtCore import QTimer
+from influxdb_client import InfluxDBClient
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+from datetime import datetime
+
+# InfluxDB Config
+INFLUX_URL = "http://localhost:8086"
+TOKEN = "9BuYLHAV7W_q1-V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw=="
+ORG = "rival team"
+BUCKET = "sensor_data"
+
+class InfluxDBReader(threading.Thread):
+    def _init_(self, callback):
+        super()._init_()
+        self.callback = callback
+
+    def run(self):
+        try:
+            client = InfluxDBClient(url=INFLUX_URL, token=TOKEN, org=ORG)
+            query_api = client.query_api()
+
+            query = f'''
+            from(bucket: "{BUCKET}")
+              |> range(start: -10s)
+              |> filter(fn: (r) => r._measurement == "sensor_data")
+              |> filter(fn: (r) => r._field == "temperature_celsius" or r._field == "humidity_percent")
+              |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+              |> sort(columns: ["_time"], desc: false)
+              |> limit(n:1)
+            '''
+
+            tables = query_api.query(query)
+            for table in tables:
+                for record in table.records:
+                    self.callback({
+                        "time": record.get_time(),
+                        "temperature": record.values.get("temperature_celsius"),
+                        "humidity": record.values.get("humidity_percent")
+                    })
+                    return
+            self.callback(None)
+        except Exception as e:
+            print(f"Error: {e}")
+            self.callback(None)
+
+class MonitoringApp(QWidget):
+    def _init_(self):
+        super()._init_()
+        self.setWindowTitle("Monitoring Fermentasi Kopi")
+        self.resize(900, 700)
+
+        # Layout
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        # Info Label
+        self.temp_label = QLabel("Temperature: -- °C")
+        self.humidity_label = QLabel("Humidity: -- %")
+        self.status_label = QLabel("Status: Tidak Terhubung")
+
+        self.layout.addWidget(self.temp_label)
+        self.layout.addWidget(self.humidity_label)
+        self.layout.addWidget(self.status_label)
+
+        # Button
+        button_layout = QHBoxLayout()
+        self.start_button = QPushButton("Start Monitoring")
+        self.stop_button = QPushButton("Stop Monitoring")
+        self.stop_button.setEnabled(False)
+
+        self.start_button.clicked.connect(self.start_monitoring)
+        self.stop_button.clicked.connect(self.stop_monitoring)
+
+        button_layout.addWidget(self.start_button)
+        button_layout.addWidget(self.stop_button)
+        self.layout.addLayout(button_layout)
+
+        # Chart
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.layout.addWidget(self.canvas)
+
+        # Data holders
+        self.times = []
+        self.temps = []
+        self.hums = []
+
+        # Timer
+        self.timer = QTimer()
+        self.timer.setInterval(5000)  # 5 detik
+        self.timer.timeout.connect(self.update_data)
+
+    def start_monitoring(self):
+        self.status_label.setText("Status: Terhubung")
+        self.start_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
+        self.timer.start()
+
+    def stop_monitoring(self):
+        self.timer.stop()
+        self.status_label.setText("Status: Tidak Terhubung")
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+
+    def update_data(self):
+        reader = InfluxDBReader(self.display_data)
+        reader.start()
+
+    def display_data(self, data):
+        if not data:
+            return
+
+        timestamp = data["time"]
+        temperature = data["temperature"]
+        humidity = data["humidity"]
+
+        # Update label
+        self.temp_label.setText(f"Temperature: {temperature:.1f} °C")
+        self.humidity_label.setText(f"Humidity: {humidity:.1f} %")
+
+        # Simpan histori
+        self.times.append(timestamp)
+        self.temps.append(temperature)
+        self.hums.append(humidity)
+
+        # Batasi data max 100 titik
+        if len(self.times) > 100:
+            self.times.pop(0)
+            self.temps.pop(0)
+            self.hums.pop(0)
+
+        # Update grafik
+        self.figure.clear()
+        ax1 = self.figure.add_subplot(2, 1, 1)
+        ax2 = self.figure.add_subplot(2, 1, 2)
+
+        ax1.plot(self.times, self.temps, 'r.-')
+        ax1.set_title("Temperature vs Time")
+        ax1.set_ylabel("°C")
+        ax1.grid(True)
+
+        ax2.plot(self.times, self.hums, 'b.-')
+        ax2.set_title("Humidity vs Time")
+        ax2.set_ylabel("%")
+        ax2.set_xlabel("Time")
+        ax2.grid(True)
+
+        self.canvas.draw()
+
+if _name_ == '_main_':
+    app = QApplication(sys.argv)
+    win = MonitoringApp()
+    win.show()
+    sys.exit(app.exec_())
