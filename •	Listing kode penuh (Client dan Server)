@@ -1,0 +1,274 @@
+1.	use std::net::{TcpListener, TcpStream};
+ 
+3. use std::thread;
+5. use reqwest::blocking::Client;
+ 
+7. #[derive(Deserialize, Debug)]
+9.	timestamp: String,
+ 
+11.	location: String,
+13.	temperature_celsius: f64,
+ 
+15.	}
+17.	fn handle_client(mut stream: TcpStream) {
+ 
+ 
+19.	loop {
+21.	Ok(0) => break,
+ 
+23.	let data =
+String::from_utf8_lossy(&buffer[..n]).to_string();
+ 
+25.
+
+27.	eprintln!("InfluxDB Error: {}", e);
+	28.				}
+	29.				
+	30.				stream.write_all(b"OK\n").unwrap_or_default();
+	31.				}
+	32.				Err(_) => break,
+	33.			}	
+	34.		}		
+	35.	}			
+	36.				
+37.	fn write_to_influx_v2(data: &str) -> Result<(), Box<dyn std::error::error="">> {
+38.	let token = "9BuYLHAV7W_q1- V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw
+==";
+39.	let	org = "ITS";
+40.	let	bucket = "sensor";
+41.	let	url = format!(
+42.
+ision=s",	"http://localhost:8086/api/v2/write?org={}&bucket={}&prec
+
+43.	org, bucket
+ 
+45.
+47.	let sensor: SensorData = serde_json::from_str(data)?;
+ 
+49.	// Format line protocol
+
+51.	"sensor_data,sensor_id={},location={},process_stage={} temperature_celsius={},humidity_percent={} {}",
+ 
+53.	sensor.location.replace(" ", "\\ "),
+55.	sensor.temperature_celsius,
+ 
+57.	chrono::DateTime::parse_from_rfc3339(&sensor.timestamp)?. timestamp()
+ 
+	59.	
+	60.	let	client = Client::new();
+	61.	let	res = client
+	62.		.post(&url)
+	63.		.header("Authorization", format!("Token {}", token))
+	64.		.header("Content-Type", "text/plain")
+	65.		.body(line)
+	66.		.send()?;
+	67.		
+	68.	if res.status().is_success() {
+69.	Ok(())
+ 
+71.	Err(format!("Failed with status: {}", res.status()).into())
+72.		}
+73.	}	
+74.		
+75.	fn	main() -> std::io::Result<()> {
+76.		let listener = TcpListener::bind("0.0.0.0:7878")?;
+77.		println!("Server listening on port 7878");
+78.		
+79.	for	stream in listener.incoming() {
+80.		match stream {
+81.		Ok(stream) => {
+82.		thread::spawn(|| handle_client(stream));
+83.		}
+84.		Err(e) => {
+85.		eprintln!("Connection failed: {}", e);
+86.		}
+87.		}
+88.	}	
+89.		
+90.	Ok(())
+91.	}</dyn>
+
+1. [package]
+ 
+3. version = "0.1.0"
+5.
+ 
+7. reqwest = { version = "0.11", features = ["blocking", "json"] }
+9. serde = { version = "1.0", features = ["derive"] }
+ 
+11.	chrono = { version = "0.4", features = ["serde"] }
+ 
+1. let suhu = parseFloat((20 + Math.random() * 10).toFixed(2));
+ 
+3.
+5.	timestamp: new Date().toISOString(),
+ 
+7.	location: "Gudang Fermentasi 1",
+9.	temperature_celsius: suhu,
+ 
+11.	};
+13.	msg.payload = JSON.stringify(payload);
+ 
+1. from(bucket: "sensor_data")
+3.  |> filter(fn: (r) => r._measurement == "sensor_data")
+ 
+5.  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+
+
+1. from(bucket: "sensor_data")
+ 
+3.  |> filter(fn: (r) => r._measurement == "sensor_data")
+5.  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+ 
+1. import sys
+3. from PyQt5.QtWidgets import (
+ 
+5. )
+7. from influxdb_client import InfluxDBClient
+ 
+9. from matplotlib.figure import Figure
+
+11.	from datetime import datetime
+ 
+13.	# InfluxDB Config
+15.	TOKEN = "9BuYLHAV7W_q1-
+V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw
+=="
+ 
+ 
+17.	BUCKET = "sensor"
+
+19.	class InfluxDBReader(threading.Thread):
+ 
+21.	super()._init_()
+23.
+ 
+25.	try:
+
+27.	query_api = client.query_api()
+ 
+29.	query = f'''
+31.	|> range(start: -10s)
+ 
+33.	|> filter(fn: (r) => r._field == "temperature_celsius" or r._field == "humidity_percent")
+	34.
+valueColumn:	|> "_value")	pivot(rowKey:["_time"], columnKey: ["_field"],
+	35.	|>	sort(columns: ["_time"], desc: false)
+	36.	|>	limit(n:1)
+37.	'''
+
+39.	tables = query_api.query(query)
+ 
+41.	for record in table.records:
+43.	"time": record.get_time(),
+ 
+45.	"humidity":
+record.values.get("humidity_percent")
+ 
+47.	return
+49.	except Exception as e:
+ 
+51.	self.callback(None)
+53.	class MonitoringApp(QWidget):
+ 
+55.	super()._init_()
+57.	self.resize(900, 700)
+ 
+ 
+59.	# Layout
+
+61.	self.setLayout(self.layout)
+ 
+63.	# Info Label
+65.	self.humidity_label = QLabel("Humidity: -- %")
+ 
+67.
+69.	self.layout.addWidget(self.humidity_label)
+ 
+71.
+73.	button_layout = QHBoxLayout()
+ 
+75.	self.stop_button = QPushButton("Stop Monitoring")
+77.
+ 
+79.	self.stop_button.clicked.connect(self.stop_monitoring)
+
+81.	button_layout.addWidget(self.start_button)
+ 
+83.	self.layout.addLayout(button_layout)
+85.	# Chart
+ 
+87.	self.canvas = FigureCanvas(self.figure)
+89.
+ 
+91.	self.times = []
+93.	self.hums = []
+ 
+95.	# Timer
+97.	self.timer.setInterval(5000) # 5 detik
+ 
+99.
+101.	self.status_label.setText("Status: Terhubung")
+ 
+103.	self.stop_button.setEnabled(True)
+ 
+	105.	
+	106.	def	stop_monitoring(self):
+	107.		self.timer.stop()
+	108.		self.status_label.setText("Status: Tidak Terhubung")
+	109.		self.start_button.setEnabled(True)
+	110.		self.stop_button.setEnabled(False)
+	111.		
+	112.	def	update_data(self):
+	113.		reader = InfluxDBReader(self.display_data)
+	114.		reader.start()
+	115.		
+	116.	def	display_data(self, data):
+	117.		if not data:
+	118.		return
+	119.		
+	120.		timestamp = data["time"]
+121.	temperature = data["temperature"]
+ 
+123.
+125.	self.temp_label.setText(f"Temperature: {temperature:.1f}
+°C")
+126.	self.humidity_label.setText(f"Humidity: {humidity:.1f}
+%")
+127.		
+128.	# Simpan histori	
+129.	self.times.append(timestamp)	
+130.	self.temps.append(temperature)	
+131.	self.hums.append(humidity)	
+132.		
+133.	# Batasi data max 100 titik	
+134.	if len(self.times) > 100:	
+135.	self.times.pop(0)	
+136.	self.temps.pop(0)	
+137.	self.hums.pop(0)	
+138.		
+139.	# Update grafik	
+140.	self.figure.clear()	
+141.	ax1 = self.figure.add_subplot(2,	1, 1)
+142.	ax2 = self.figure.add_subplot(2,	1, 2)
+143.		
+144.	ax1.plot(self.times, self.temps,	'r.-')
+145.	ax1.set_title("Temperature vs Time")
+146.	ax1.set_ylabel("°C")
+147.	ax1.grid(True)
+148.	
+149.	ax2.plot(self.times, self.hums, 'b.-')
+ 
+	150.		ax2.set_title("Humidity vs Time")
+	151.		ax2.set_ylabel("%")
+	152.		ax2.set_xlabel("Time")
+	153.		ax2.grid(True)
+	154.		
+	155.		self.canvas.draw()
+	156.		
+	157.	if	_name_ == '_main_':
+	158.		app = QApplication(sys.argv)
+	159.		win = MonitoringApp()
+	160.		win.show()
+	161.		sys.exit(app.exec_())
+
