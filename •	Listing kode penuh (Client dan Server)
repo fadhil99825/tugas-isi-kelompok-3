@@ -1,274 +1,874 @@
-1.	use std::net::{TcpListener, TcpStream};
+1. use std::net::{TcpListener, TcpStream}; 
+2. use std::io::{Read, Write}; 
+3. use std::thread; 
+4. use serde::Deserialize; 
+5. use reqwest::blocking::Client; 
+6. 
+7. #[derive(Deserialize, Debug)] 
+8. struct SensorData { 
+9. 
+10. 
+timestamp: String, 
+sensor_id: String, 
+11. 
+12. 
+location: String, 
+process_stage: String, 
+13. 
+14. 
+temperature_celsius: f64, 
+humidity_percent: f64, 
+15. 
+16. 
+} 
+17. 
+fn handle_client(mut stream: TcpStream) { 
  
-3. use std::thread;
-5. use reqwest::blocking::Client;
+19. loop { 
+21. Ok(0) => break, 
+ 23. let data = 
+String::from_utf8_lossy(&buffer[..n]).to_string(); 
  
-7. #[derive(Deserialize, Debug)]
-9.	timestamp: String,
+25. 
  
-11.	location: String,
-13.	temperature_celsius: f64,
+27. eprintln!("InfluxDB Error: {}", e); 
+ 28.    } 
+29.     
+30.    stream.write_all(b"OK\n").unwrap_or_default(); 
+31.    } 
+32.    Err(_) => break, 
+33.   }  
+34.  }   
+35. }    
+ 36.     
+37. fn write_to_influx_v2(data: &str) -> Result<(), Box<dyn 
+std::error::error="">> { 
+38. let token = "9BuYLHAV7W_q1- 
+V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw 
+=="; 
+39. let org = "ITS"; 
+40. let bucket = "sensor"; 
+41. let url = format!( 
+42. 
+ision=s", 
+"http://localhost:8086/api/v2/write?org={}&bucket={}&prec 
+43. org, bucket 
  
-15.	}
-17.	fn handle_client(mut stream: TcpStream) {
+45. 
+47. let sensor: SensorData = serde_json::from_str(data)?; 
  
+49. // Format line protocol 
  
-19.	loop {
-21.	Ok(0) => break,
+51. "sensor_data,sensor_id={},location={},process_stage={} 
+temperature_celsius={},humidity_percent={} {}", 
  
-23.	let data =
-String::from_utf8_lossy(&buffer[..n]).to_string();
+53. sensor.location.replace(" ", "\\ "), 
+55. sensor.temperature_celsius, 
  
-25.
-
-27.	eprintln!("InfluxDB Error: {}", e);
-	28.				}
-	29.				
-	30.				stream.write_all(b"OK\n").unwrap_or_default();
-	31.				}
-	32.				Err(_) => break,
-	33.			}	
-	34.		}		
-	35.	}			
-	36.				
-37.	fn write_to_influx_v2(data: &str) -> Result<(), Box<dyn std::error::error="">> {
-38.	let token = "9BuYLHAV7W_q1- V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw
-==";
-39.	let	org = "ITS";
-40.	let	bucket = "sensor";
-41.	let	url = format!(
-42.
-ision=s",	"http://localhost:8086/api/v2/write?org={}&bucket={}&prec
-
-43.	org, bucket
+57. chrono::DateTime::parse_from_rfc3339(&sensor.timestamp)?. 
+timestamp() 
+18. let mut buffer = [0; 1024]; 
+22. Ok(n) => { 
+24. println!("Received: {}", data); 
+44. ); 
+48. 
+52. sensor.sensor_id.replace(" ", "\\ "), 
+56. sensor.humidity_percent, 
+58. ); 
+54. sensor.process_stage.replace(" ", "\\ "), 
+50. let line = format!( 
+46. // Parse JSON string 
+26. if let Err(e) = write_to_influx_v2(&data) { 
+20. match stream.read(&mut buffer) { 
+ 59.  
+60. let client = Client::new(); 
+61. let res = client 
+62.  .post(&url) 
+63.  .header("Authorization", format!("Token {}", token)) 
+64.  .header("Content-Type", "text/plain") 
+65.  .body(line) 
+66.  .send()?; 
+67.   
+ 68. if res.status().is_success() { 
+69. Ok(()) 
  
-45.
-47.	let sensor: SensorData = serde_json::from_str(data)?;
+71. Err(format!("Failed with status: {}", 
+res.status()).into()) 
+72.  } 
+73. }  
+74.   
+75. fn main() -> std::io::Result<()> { 
+76.  let listener = TcpListener::bind("0.0.0.0:7878")?; 
+77.  println!("Server listening on port 7878"); 
+78.   
+79. for stream in listener.incoming() { 
+80.  match stream { 
+81.  Ok(stream) => { 
+82.  thread::spawn(|| handle_client(stream)); 
+83.  } 
+84.  Err(e) => { 
+85.  eprintln!("Connection failed: {}", e); 
+86.  } 
+87.  } 
+88. }  
+89.   
+90. Ok(()) 
+91. }</dyn> 
  
-49.	// Format line protocol
-
-51.	"sensor_data,sensor_id={},location={},process_stage={} temperature_celsius={},humidity_percent={} {}",
+1. [package] 
  
-53.	sensor.location.replace(" ", "\\ "),
-55.	sensor.temperature_celsius,
+3. version = "0.1.0" 
+5. 
  
-57.	chrono::DateTime::parse_from_rfc3339(&sensor.timestamp)?. timestamp()
+7. reqwest = { version = "0.11", features = ["blocking", "json"] } 
+9. serde = { version = "1.0", features = ["derive"] } 
  
-	59.	
-	60.	let	client = Client::new();
-	61.	let	res = client
-	62.		.post(&url)
-	63.		.header("Authorization", format!("Token {}", token))
-	64.		.header("Content-Type", "text/plain")
-	65.		.body(line)
-	66.		.send()?;
-	67.		
-	68.	if res.status().is_success() {
-69.	Ok(())
+11. chrono = { version = "0.4", features = ["serde"] } 
+70. } else { 
+2. name = "rust-server" 
+6. [dependencies] 
+10. serde_json = "1.0" 
+8. dotenv = "0.15" 
+4. edition = "2024" 
+1. let suhu = parseFloat((20 + Math.random() * 10).toFixed(2)); 
  
-71.	Err(format!("Failed with status: {}", res.status()).into())
-72.		}
-73.	}	
-74.		
-75.	fn	main() -> std::io::Result<()> {
-76.		let listener = TcpListener::bind("0.0.0.0:7878")?;
-77.		println!("Server listening on port 7878");
-78.		
-79.	for	stream in listener.incoming() {
-80.		match stream {
-81.		Ok(stream) => {
-82.		thread::spawn(|| handle_client(stream));
-83.		}
-84.		Err(e) => {
-85.		eprintln!("Connection failed: {}", e);
-86.		}
-87.		}
-88.	}	
-89.		
-90.	Ok(())
-91.	}</dyn>
-
-1. [package]
+3. 
+5. timestamp: new Date().toISOString(), 
  
-3. version = "0.1.0"
-5.
+7. location: "Gudang Fermentasi 1", 
+9. temperature_celsius: suhu, 
  
-7. reqwest = { version = "0.11", features = ["blocking", "json"] }
-9. serde = { version = "1.0", features = ["derive"] }
+11. }; 
+13. msg.payload = JSON.stringify(payload); 
  
-11.	chrono = { version = "0.4", features = ["serde"] }
+1. from(bucket: "sensor_data") 
+3.  |> filter(fn: (r) => r._measurement == "sensor_data") 
  
-1. let suhu = parseFloat((20 + Math.random() * 10).toFixed(2));
- 
-3.
-5.	timestamp: new Date().toISOString(),
- 
-7.	location: "Gudang Fermentasi 1",
-9.	temperature_celsius: suhu,
- 
-11.	};
-13.	msg.payload = JSON.stringify(payload);
- 
-1. from(bucket: "sensor_data")
-3.  |> filter(fn: (r) => r._measurement == "sensor_data")
- 
-5.  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
-
-
-1. from(bucket: "sensor_data")
- 
-3.  |> filter(fn: (r) => r._measurement == "sensor_data")
-5.  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
- 
-1. import sys
-3. from PyQt5.QtWidgets import (
- 
-5. )
-7. from influxdb_client import InfluxDBClient
- 
-9. from matplotlib.figure import Figure
-
-11.	from datetime import datetime
- 
-13.	# InfluxDB Config
-15.	TOKEN = "9BuYLHAV7W_q1-
-V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw
-=="
- 
- 
-17.	BUCKET = "sensor"
-
-19.	class InfluxDBReader(threading.Thread):
- 
-21.	super()._init_()
-23.
- 
-25.	try:
-
-27.	query_api = client.query_api()
- 
-29.	query = f'''
-31.	|> range(start: -10s)
- 
-33.	|> filter(fn: (r) => r._field == "temperature_celsius" or r._field == "humidity_percent")
-	34.
-valueColumn:	|> "_value")	pivot(rowKey:["_time"], columnKey: ["_field"],
-	35.	|>	sort(columns: ["_time"], desc: false)
-	36.	|>	limit(n:1)
-37.	'''
-
-39.	tables = query_api.query(query)
- 
-41.	for record in table.records:
-43.	"time": record.get_time(),
- 
-45.	"humidity":
-record.values.get("humidity_percent")
- 
-47.	return
-49.	except Exception as e:
- 
-51.	self.callback(None)
-53.	class MonitoringApp(QWidget):
- 
-55.	super()._init_()
-57.	self.resize(900, 700)
+5.  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false) 
  
  
-59.	# Layout
-
-61.	self.setLayout(self.layout)
+1. from(bucket: "sensor_data") 
  
-63.	# Info Label
-65.	self.humidity_label = QLabel("Humidity: -- %")
+3.  |> filter(fn: (r) => r._measurement == "sensor_data") 
+5.  |> aggregateWindow(every: 1m, fn: mean, createEmpty: false) 
  
-67.
-69.	self.layout.addWidget(self.humidity_label)
+1. import sys 
+3. from PyQt5.QtWidgets import ( 
  
-71.
-73.	button_layout = QHBoxLayout()
+5. ) 
+7. from influxdb_client import InfluxDBClient 
  
-75.	self.stop_button = QPushButton("Stop Monitoring")
-77.
+9. from matplotlib.figure import Figure 
  
-79.	self.stop_button.clicked.connect(self.stop_monitoring)
-
-81.	button_layout.addWidget(self.start_button)
+11. from datetime import datetime 
  
-83.	self.layout.addLayout(button_layout)
-85.	# Chart
+13. # InfluxDB Config 
+15. TOKEN = "9BuYLHAV7W_q1- 
+V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqUnCtuAEdb2PoVxvZw 
+==" 
+2. let kelembaban = parseFloat((40 + Math.random() * 20).toFixed(2)); 
+6. sensor_id: "SHT20-PascaPanen-001", 
+10. humidity_percent: kelembaban 
+14. return msg; 
+4.  |> filter(fn: (r) => r._field == "humidity_percent") 
+2.  |> range(start: -1h) 
+6.  |> yield(name: "mean") 
+4. QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout 
+8. from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as 
+FigureCanvas 
+12. 
+14. INFLUX_URL = "http://localhost:8086" 
+10. 
+6. from PyQt5.QtCore import QTimer 
+2. import threading 
+4.  |> filter(fn: (r) => r._field == "temperature_celsius") 
+6.  |> yield(name: "mean") 
+2.  |> range(start: -1h) 
+12. 
+8. process_stage: "Fermentasi", 
+4. let payload = { 
  
-87.	self.canvas = FigureCanvas(self.figure)
-89.
+17. BUCKET = "sensor" 
  
-91.	self.times = []
-93.	self.hums = []
+19. class InfluxDBReader(threading.Thread): 
  
-95.	# Timer
-97.	self.timer.setInterval(5000) # 5 detik
+21. super()._init_() 
+23. 
  
-99.
-101.	self.status_label.setText("Status: Terhubung")
+25. try: 
  
-103.	self.stop_button.setEnabled(True)
+27. query_api = client.query_api() 
  
-	105.	
-	106.	def	stop_monitoring(self):
-	107.		self.timer.stop()
-	108.		self.status_label.setText("Status: Tidak Terhubung")
-	109.		self.start_button.setEnabled(True)
-	110.		self.stop_button.setEnabled(False)
-	111.		
-	112.	def	update_data(self):
-	113.		reader = InfluxDBReader(self.display_data)
-	114.		reader.start()
-	115.		
-	116.	def	display_data(self, data):
-	117.		if not data:
-	118.		return
-	119.		
-	120.		timestamp = data["time"]
-121.	temperature = data["temperature"]
+29. query = f''' 
+31. |> range(start: -10s) 
  
-123.
-125.	self.temp_label.setText(f"Temperature: {temperature:.1f}
-°C")
-126.	self.humidity_label.setText(f"Humidity: {humidity:.1f}
-%")
-127.		
-128.	# Simpan histori	
-129.	self.times.append(timestamp)	
-130.	self.temps.append(temperature)	
-131.	self.hums.append(humidity)	
-132.		
-133.	# Batasi data max 100 titik	
-134.	if len(self.times) > 100:	
-135.	self.times.pop(0)	
-136.	self.temps.pop(0)	
-137.	self.hums.pop(0)	
-138.		
-139.	# Update grafik	
-140.	self.figure.clear()	
-141.	ax1 = self.figure.add_subplot(2,	1, 1)
-142.	ax2 = self.figure.add_subplot(2,	1, 2)
-143.		
-144.	ax1.plot(self.times, self.temps,	'r.-')
-145.	ax1.set_title("Temperature vs Time")
-146.	ax1.set_ylabel("°C")
-147.	ax1.grid(True)
-148.	
-149.	ax2.plot(self.times, self.hums, 'b.-')
+33. |> filter(fn: (r) => r._field == 
+"temperature_celsius" or r._field == "humidity_percent") 
+ 34. 
+valueColumn: 
+|> 
+"_value") 
+pivot(rowKey:["_time"], columnKey: ["_field"], 
+35. |> sort(columns: ["_time"], desc: false) 
+ 36. |> limit(n:1) 
+37. ''' 
  
-	150.		ax2.set_title("Humidity vs Time")
-	151.		ax2.set_ylabel("%")
-	152.		ax2.set_xlabel("Time")
-	153.		ax2.grid(True)
-	154.		
-	155.		self.canvas.draw()
-	156.		
-	157.	if	_name_ == '_main_':
-	158.		app = QApplication(sys.argv)
-	159.		win = MonitoringApp()
-	160.		win.show()
-	161.		sys.exit(app.exec_())
-
+39. tables = query_api.query(query) 
+ 
+41. for record in table.records: 
+43. "time": record.get_time(), 
+ 45. "humidity": 
+record.values.get("humidity_percent") 
+ 
+47. return 
+49. except Exception as e: 
+ 
+51. self.callback(None) 
+53. class MonitoringApp(QWidget): 
+ 
+55. super()._init_() 
+57. self.resize(900, 700) 
+16. ORG = "ITS" 
+20. def _init_(self, callback): 
+24. def run(self): 
+28. 
+32. 
+"sensor_data") 
+|> filter(fn: (r) => r._measurement == 
+40. for table in tables: 
+44. "temperature": 
+record.values.get("temperature_celsius"), 
+46. }) 
+50. print(f"Error: {e}") 
+54. def _init_(self): 
+26. 
+org=ORG) 
+client = InfluxDBClient(url=INFLUX_URL, token=TOKEN, 
+56. self.setWindowTitle("Monitoring Fermentasi Kopi") 
+52. 
+48. self.callback(None) 
+42. self.callback({ 
+38. 
+30. from(bucket: "{BUCKET}") 
+22. self.callback = callback 
+18. 
+ 
+59. # Layout 
+ 
+61. self.setLayout(self.layout) 
+ 
+63. # Info Label 
+65. self.humidity_label = QLabel("Humidity: -- %") 
+ 
+67. 
+69. self.layout.addWidget(self.humidity_label) 
+ 
+71. 
+73. button_layout = QHBoxLayout() 
+ 
+75. self.stop_button = QPushButton("Stop Monitoring") 
+77. 
+ 
+79. self.stop_button.clicked.connect(self.stop_monitoring) 
+ 
+81. button_layout.addWidget(self.start_button) 
+ 
+83. self.layout.addLayout(button_layout) 
+85. # Chart 
+ 
+87. self.canvas = FigureCanvas(self.figure) 
+89. 
+ 
+91. self.times = [] 
+93. self.hums = [] 
+ 
+95. # Timer 
+97. self.timer.setInterval(5000) # 5 detik 
+ 
+99. 
+101. self.status_label.setText("Status: Terhubung") 
+ 
+103. self.stop_button.setEnabled(True) 
+58. 
+62. 
+66. self.status_label = QLabel("Status: Tidak Terhubung") 
+70. self.layout.addWidget(self.status_label) 
+74. self.start_button = QPushButton("Start Monitoring") 
+78. self.start_button.clicked.connect(self.start_monitoring) 
+82. button_layout.addWidget(self.stop_button) 
+86. self.figure = Figure() 
+90. # Data holders 
+94. 
+98. self.timer.timeout.connect(self.update_data) 
+102. self.start_button.setEnabled(False) 
+104. self.timer.start() 
+100. def start_monitoring(self): 
+96. self.timer = QTimer() 
+92. self.temps = [] 
+88. self.layout.addWidget(self.canvas) 
+84. 
+80. 
+76. self.stop_button.setEnabled(False) 
+72. # Button 
+68. self.layout.addWidget(self.temp_label) 
+64. self.temp_label = QLabel("Temperature: -- °C") 
+60. self.layout = QVBoxLayout() 
+ 105.  
+106. def stop_monitoring(self): 
+107.  self.timer.stop() 
+108.  self.status_label.setText("Status: Tidak Terhubung") 
+109.  self.start_button.setEnabled(True) 
+110.  self.stop_button.setEnabled(False) 
+111.   
+112. def update_data(self): 
+113.  reader = InfluxDBReader(self.display_data) 
+114.  reader.start() 
+115.   
+116. def display_data(self, data): 
+117.  if not data: 
+118.  return 
+119.   
+ 120.  timestamp = data["time"] 
+121. temperature = data["temperature"] 
+ 
+123. 
+125. self.temp_label.setText(f"Temperature: {temperature:.1f} 
+°C") 
+126. self.humidity_label.setText(f"Humidity: {humidity:.1f} 
+%") 
+127.   
+128. # Simpan histori  
+129. self.times.append(timestamp)  
+130. self.temps.append(temperature)  
+131. self.hums.append(humidity)  
+132.   
+133. # Batasi data max 100 titik  
+134. if len(self.times) > 100:  
+135. self.times.pop(0)  
+136. self.temps.pop(0)  
+137. self.hums.pop(0)  
+138.   
+139. # Update grafik  
+140. self.figure.clear()  
+141. ax1 = self.figure.add_subplot(2, 1, 1) 
+142. ax2 = self.figure.add_subplot(2, 1, 2) 
+143.   
+144. ax1.plot(self.times, self.temps, 'r.-') 
+145. ax1.set_title("Temperature vs Time") 
+146. ax1.set_ylabel("°C") 
+147. ax1.grid(True) 
+148.  
+149. ax2.plot(self.times, self.hums, 'b.-') 
+122. humidity = data["humidity"] 
+124. # Update label 
+ 150.  ax2.set_title("Humidity vs Time") 
+151.  ax2.set_ylabel("%") 
+152.  ax2.set_xlabel("Time") 
+153.  ax2.grid(True) 
+154.   
+155.  self.canvas.draw() 
+156.   
+157. if _name_ == '_main_': 
+158.  app = QApplication(sys.argv) 
+159.  win = MonitoringApp() 
+160.  win.show() 
+ 161.  sys.exit(app.exec_()) 
+ 
+ 
+1. use tokio::net::TcpListener; 
+2. use tokio::io::{AsyncBufReadExt, BufReader}; 
+3. use serde::Deserialize; 
+4. use reqwest::Client; 
+5.   
+6. #[derive(Deserialize, Debug)] 
+7. struct SensorData { 
+8.     timestamp: String, 
+9.     sensor_id: String, 
+10.     location: String, 
+11.     process_stage: String, 
+12.     temperature_celsius: f32, 
+13.     humidity_percent: f32, 
+14. } 
+15.   
+16. #[tokio::main] 
+17. async fn main() -> Result<(), Box<dyn std::error::error="">> { 
+18.     let listener = TcpListener::bind("0.0.0.0:9000").await?; 
+19.     let influx_url = 
+"http://localhost:8086/api/v2/write?org=ITS&bucket=sensor&precision=s"; 
+20.     let token = 
+"7cxktB5BI0lWjTM77vAqPL8WaTdXz4X7GLTqA63JI6JF4jjaqe2yw4LgDqCTg9U_JpsvaSgT8mjeS
+ VDLDMv59Q=="; 
+21.     let client = Client::new(); 
+22.   
+23.     println!("🚪 TCP Server listening on port 9000..."); 
+24.   
+25.     loop { 
+26.         let (socket, addr) = listener.accept().await?; 
+27.         println!("🔌 Koneksi masuk dari {}", addr); 
+28.   
+29.         let client = client.clone(); 
+30.         let influx_url = influx_url.to_string(); 
+31.         let token = token.to_string(); 
+32.   
+33.         tokio::spawn(async move { 
+34.             let reader = BufReader::new(socket); 
+35.             let mut lines = reader.lines(); 
+36.   
+37.             while let Ok(Some(line)) = lines.next_line().await { 
+38.                 match serde_json::from_str::<sensordata>(&line) { 
+39.                     Ok(data) => { 
+40.                         println!("📥 Data diterima: {:?}", data); 
+41.   
+42.                         // Line Protocol format: measurement,tag1=value1 
+field1=val1,field2=val2 timestamp 
+43.                         let line = format!( 
+44.                             "monitoring,sensor_id={},location={},stage={
+ } temperature={},humidity={} {}", 
+45.                             data.sensor_id.replace(" ", "\\ "), 
+46.                             data.location.replace(" ", "\\ "), 
+47.                             data.process_stage.replace(" ", "\\ "), 
+48.                             data.temperature_celsius, 
+49.                             data.humidity_percent, 
+50.                             chrono::DateTime::parse_from_rfc3339(&data.t
+ imestamp) 
+51.                                 .unwrap() 
+52.                                 .timestamp() 
+53.                         ); 
+54.   
+55.                         // Kirim ke InfluxDB 
+56.                         let res = client.post(&influx_url) 
+57.                             .header("Authorization", format!("Token {}", 
+token)) 
+58.                             .header("Content-Type", "text/plain") 
+59.                             .body(line) 
+60.                             .send() 
+61.                             .await; 
+62.   
+63.                         match res { 
+64.                             Ok(resp) if resp.status().is_success() => { 
+65.                                 println!("✅ Data dikirim ke 
+InfluxDB"); 
+66.                             }, 
+67.                             Ok(resp) => { 
+68.                                 println!("⚠ Gagal kirim ke InfluxDB: 
+{}", resp.status()); 
+69.                             }, 
+70.                             Err(e) => { 
+71.                                 println!("❌ HTTP Error: {}", e); 
+72.                             } 
+73.                         } 
+74.                     }, 
+75.                     Err(e) => println!("❌ Format JSON tidak valid: 
+{}", e), 
+76.                 } 
+77.             } 
+78.         }); 
+79.     } 
+80. }</sensordata></dyn> 
+1. use tokio_modbus::{client::rtu, prelude::*}; 
+2. use tokio_serial::{SerialPortBuilderExt, Parity, StopBits, DataBits}; 
+3. use tokio::net::TcpStream; 
+4. use tokio::io::AsyncWriteExt; 
+5. use serde::Serialize; 
+6. use chrono::Utc; 
+7. use std::error::Error; 
+8. use tokio::time::{sleep, Duration}; 
+9.   
+10. #[derive(Serialize)] 
+11. struct SensorData { 
+12.     timestamp: String, 
+13.     sensor_id: String, 
+14.     location: String, 
+15.     process_stage: String, 
+16.     temperature_celsius: f32, 
+17.     humidity_percent: f32, 
+18. } 
+19.   
+20. async fn read_sensor(slave: u8) -> Result<vec<u16>, Box<dyn error="">> { 
+21.     let builder = tokio_serial::new("/dev/ttyUSB0", 9600) 
+22.         .parity(Parity::None) 
+23.         .stop_bits(StopBits::One) 
+24.         .data_bits(DataBits::Eight) 
+25.         .timeout(std::time::Duration::from_secs(1)); 
+26.   
+27.     let port = builder.open_native_async()?; 
+28.     let mut ctx = rtu::connect_slave(port, Slave(slave)).await?; 
+29.     let response = ctx.read_input_registers(1, 2).await?; 
+30.   
+31.     Ok(response) 
+32. } 
+33.   
+34. #[tokio::main] 
+35. async fn main() -> Result<(), Box<dyn error="">> { 
+36.     loop { 
+37.         match read_sensor(1).await { 
+38.             Ok(response) if response.len() == 2 => { 
+39.                 let temp = response[0] as f32 / 10.0; 
+40.                 let rh = response[1] as f32 / 10.0; 
+41.   
+42.                 println!("📡 Temp: {:.1} °C | RH: {:.1} %", temp, rh); 
+43.   
+44.                 let data = SensorData { 
+45.                     timestamp: Utc::now().to_rfc3339(), 
+46.                     sensor_id: "SHT20-PascaPanen-001".into(), 
+47.                     location: "Gudang Fermentasi 1".into(), 
+48.                     process_stage: "Fermentasi".into(), 
+49.                     temperature_celsius: temp, 
+50.                     humidity_percent: rh, 
+51.                 }; 
+52.   
+53.                 let json = serde_json::to_string(&data)?; 
+54.                   
+55.                 match TcpStream::connect("127.0.0.1:9000").await { 
+56.                     Ok(mut stream) => { 
+57.                         stream.write_all(json.as_bytes()).await?; 
+58.                         stream.write_all(b"\n").await?; 
+59.                         println!("✅ Data dikirim ke TCP server"); 
+60.                     }, 
+61.                     Err(e) => { 
+62.                         println!("❌ Gagal konek ke TCP server: {}", 
+e); 
+63.                     } 
+64.                 } 
+65.             }, 
+66.             Ok(other) => { 
+67.                 println!("⚠ Data tidak lengkap: {:?}", other); 
+68.             }, 
+69.             Err(e) => { 
+70.                 println!("❌ Gagal baca sensor: {}", e); 
+71.             } 
+72.         } 
+73.   
+74.         sleep(Duration::from_secs(2)).await; 
+75.     } 
+76. }</dyn></dyn></vec<u16> 
+1. import matplotlib 
+2. matplotlib.use('Agg')  # Backend non-GUI 
+3.   
+4. import tkinter as tk 
+5. from tkinter import ttk 
+6. from PIL import Image, ImageTk 
+7. import requests 
+8. import threading 
+9. import time 
+10. import csv 
+11. from io import StringIO, BytesIO 
+12. from matplotlib.figure import Figure 
+13. from collections import deque 
+14.   
+15. # --- Konfigurasi InfluxDB --- 
+16. INFLUX_QUERY_URL = "http://localhost:8086/api/v2/query" 
+17. ORG = "ITS" 
+18. BUCKET = "sensor" 
+19. TOKEN = 
+"7cxktB5BI0lWjTM77vAqPL8WaTdXz4X7GLTqA63JI6JF4jjaqe2yw4LgDqCTg9U_
+ JpsvaSgT8mjeSVDLDMv59Q==" 
+20.   
+21. # --- Riwayat data --- 
+22. history_length = 50 
+23. temp_history = deque(maxlen=history_length) 
+24. rh_history = deque(maxlen=history_length) 
+25. time_history = deque(maxlen=history_length) 
+26.   
+27. # Kontrol thread 
+28. update_running = False 
+29.   
+30. def get_latest_data(): 
+31.     flux_query = f''' 
+32.     from(bucket: "{BUCKET}") 
+33.       |> range(start: -1m) 
+34.       |> filter(fn: (r) => r._measurement == "monitoring") 
+35.       |> filter(fn: (r) => r._field == "temperature" or 
+r._field == "humidity") 
+36.       |> last() 
+37.     ''' 
+38.     headers = { 
+39.         "Authorization": f"Token {TOKEN}", 
+40.         "Content-Type": "application/vnd.flux", 
+41.         "Accept": "application/csv" 
+42.     } 
+43.     try: 
+44.         response = requests.post( 
+45.             INFLUX_QUERY_URL, 
+46.             params={"org": ORG}, 
+47.             headers=headers, 
+48.             data=flux_query 
+49.         ) 
+50.         reader = csv.DictReader(StringIO(response.text)) 
+51.         data = {} 
+52.         for row in reader: 
+53.             try: 
+54.                 field = row["_field"] 
+55.                 value = float(row["_value"]) 
+56.                 data[field] = value 
+57.             except: 
+58.                 continue 
+59.         if "temperature" in data and "humidity" in data: 
+60.             return data["temperature"], data["humidity"] 
+61.         return None 
+62.     except Exception as e: 
+63.         print("❌ Exception query Influx:", e) 
+64.         return None 
+65.   
+66. def get_data_range(start_time, end_time): 
+67.     flux_query = f''' 
+68.     from(bucket: "{BUCKET}") 
+69.       |> range(start: {start_time}, stop: {end_time}) 
+70.       |> filter(fn: (r) => r._measurement == "monitoring") 
+71.       |> filter(fn: (r) => r._field == "temperature" or 
+r._field == "humidity") 
+72.     ''' 
+73.     headers = { 
+74.         "Authorization": f"Token {TOKEN}", 
+75.         "Content-Type": "application/vnd.flux", 
+76.         "Accept": "application/csv" 
+77.     } 
+78.     try: 
+79.         response = requests.post( 
+80.             INFLUX_QUERY_URL, 
+81.             params={"org": ORG}, 
+82.             headers=headers, 
+83.             data=flux_query 
+84.         ) 
+85.         reader = csv.DictReader(StringIO(response.text)) 
+86.         temp_map = {} 
+87.         rh_map = {} 
+88.         for row in reader: 
+89.             try: 
+90.                 t = row["_time"] 
+91.                 field = row["_field"] 
+92.                 value = float(row["_value"]) 
+93.                 if field == "temperature": 
+94.                     temp_map[t] = value 
+95.                 elif field == "humidity": 
+96.                     rh_map[t] = value 
+97.             except: 
+98.                 continue 
+99.         sorted_keys = sorted(set(temp_map.keys()) & 
+set(rh_map.keys())) 
+100.         temps = [temp_map[t] for t in sorted_keys] 
+101.         rhs = [rh_map[t] for t in sorted_keys] 
+102.         times = [t[11:19] for t in sorted_keys]  # 
+jam:menit:detik 
+103.         return temps, rhs, times 
+104.     except Exception as e: 
+105.         print("❌ Exception query Influx:", e) 
+106.         return [], [], [] 
+107.   
+108. def update_data(): 
+109.     global update_running 
+110.     while update_running: 
+111.         result = get_latest_data() 
+112.         current_time = time.strftime('%H:%M:%S') 
+113.         if result: 
+114.             temp, rh = result 
+115.             root.after(0, lambda: 
+label_temp.config(text=f"Suhu: {temp:.1f} °C")) 
+116.             root.after(0, lambda: 
+label_rh.config(text=f"Kelembaban: {rh:.1f} %")) 
+117.             root.after(0, lambda: 
+status_label.config(text="✅ Data dari Influx", fg="green")) 
+118.   
+119.             temp_history.append(temp) 
+120.             rh_history.append(rh) 
+121.             time_history.append(current_time) 
+122.   
+123.             root.after(0, plot_graph) 
+124.             root.after(0, update_table_latest, current_time, 
+temp, rh) 
+125.         else: 
+126.             root.after(0, lambda: 
+label_temp.config(text="Suhu: ---")) 
+127.             root.after(0, lambda: 
+label_rh.config(text="Kelembaban: ---")) 
+128.             root.after(0, lambda: 
+status_label.config(text="❌ Gagal ambil data", fg="red")) 
+129.         time.sleep(2) 
+130.   
+131. def plot_graph(): 
+132.     # Buat Figure baru tiap kali update agar tidak tumpang 
+tindih 
+133.     fig = Figure(figsize=(5, 3), dpi=100)  # ukuran 
+diperkecil 
+134.     ax1 = fig.add_subplot(211) 
+135.     ax2 = fig.add_subplot(212) 
+136.   
+137.     # Background hitam 
+138.     fig.patch.set_facecolor('black') 
+139.     ax1.set_facecolor('black') 
+140.     ax2.set_facecolor('black') 
+141.   
+142.     x = list(range(len(time_history))) 
+143.     times = list(time_history) 
+144.   
+145.     # Plot garis dengan marker 
+146.     ax1.plot(x, list(temp_history), label='Suhu (°C)', 
+color='red', marker='o', linestyle='-') 
+147.     ax2.plot(x, list(rh_history), label='Kelembaban (%)', 
+color='cyan', marker='x', linestyle='-') 
+148.   
+149.     ax1.set_title("Grafik Suhu", color='white') 
+150.     ax2.set_title("Grafik Kelembaban", color='white') 
+151.     ax1.set_ylabel("°C", color='white') 
+152.     ax2.set_ylabel("%", color='white') 
+153.   
+154.     # Label x hanya tiap 5 data 
+155.     interval = 5 
+156.     tick_positions = x[::interval] if x else [] 
+157.     tick_labels = times[::interval] if times else [] 
+158.   
+159.     ax1.set_xticks(tick_positions) 
+160.     ax2.set_xticks(tick_positions) 
+161.     ax1.set_xticklabels(tick_labels, rotation=45, 
+ha="right", color='white') 
+162.     ax2.set_xticklabels(tick_labels, rotation=45, 
+ha="right", color='white') 
+163.   
+164.     for ax in [ax1, ax2]: 
+165.         ax.tick_params(axis='y', colors='white') 
+166.         ax.tick_params(axis='x', colors='white') 
+167.         ax.grid(True, linestyle='--', alpha=0.3, 
+color='gray') 
+168.         for spine in ax.spines.values(): 
+169.             spine.set_color('white') 
+170.   
+171.     fig.tight_layout() 
+172.   
+173.     # Render ke buffer 
+174.     buf = BytesIO() 
+175.     fig.savefig(buf, format='png', 
+facecolor=fig.get_facecolor()) 
+176.     buf.seek(0) 
+177.   
+178.     img = Image.open(buf) 
+179.     photo = ImageTk.PhotoImage(img) 
+180.   
+181.     canvas_label.config(image=photo) 
+182.     canvas_label.image = photo 
+183.   
+184. def show_history(): 
+185.     start = entry_start.get() 
+186.     end = entry_end.get() 
+187.     temps, rhs, times = get_data_range(start, end) 
+188.   
+189.     if temps and rhs: 
+190.         temp_history.clear() 
+191.         rh_history.clear() 
+192.         time_history.clear() 
+193.   
+194.         temp_history.extend(temps) 
+195.         rh_history.extend(rhs) 
+196.         time_history.extend(times) 
+197.   
+198.         label_temp.config(text="(Hist) Suhu: -- °C") 
+199.         label_rh.config(text="(Hist) Kelembaban: -- %") 
+200.         status_label.config(text="📈 Menampilkan data 
+historis", fg="blue") 
+201.         plot_graph() 
+202.   
+203.         tree_history.delete(*tree_history.get_children()) 
+204.         for t, temp, rh in zip(times, temps, rhs): 
+205.             tree_history.insert('', 'end', values=(t, 
+f"{temp:.1f}", f"{rh:.1f}")) 
+206.     else: 
+207.         status_label.config(text="❌ Tidak ada data 
+historis", fg="red") 
+208.   
+209. def update_table_latest(t, temp, rh): 
+210.     if len(tree_latest.get_children()) > 50: 
+211.         first = tree_latest.get_children()[0] 
+212.         tree_latest.delete(first) 
+213.     tree_latest.insert('', 'end', values=(t, f"{temp:.1f}", 
+f"{rh:.1f}")) 
+214.   
+215. def start_monitoring(): 
+216.     global update_running 
+217.     if not update_running: 
+218.         update_running = True 
+219.         status_label.config(text="▶ Monitoring dimulai", 
+fg="green") 
+220.         threading.Thread(target=update_data, 
+daemon=True).start() 
+221.   
+222. def stop_monitoring(): 
+223.     global update_running 
+224.     update_running = False 
+225.     status_label.config(text="■ Monitoring dihentikan", 
+fg="red") 
+226.   
+227. # --- GUI Setup --- 
+228. root = tk.Tk() 
+229. root.title("Monitor SHT20 dari InfluxDB") 
+230. root.geometry("920x850") 
+231.   
+232. label_temp = tk.Label(root, text="Suhu: -- °C", 
+font=("Helvetica", 16)) 
+233. label_temp.pack(pady=3) 
+234. label_rh = tk.Label(root, text="Kelembaban: -- %", 
+font=("Helvetica", 16)) 
+235. label_rh.pack(pady=3) 
+236. status_label = tk.Label(root, text="Status: ---", fg="blue", 
+font=("Helvetica", 12)) 
+237. status_label.pack(pady=5) 
+238.   
+239. frame_controls = tk.Frame(root) 
+240. frame_controls.pack(pady=5) 
+241. btn_start = tk.Button(frame_controls, text="▶ Start 
+Monitoring", command=start_monitoring, width=18, bg="green", 
+fg="white") 
+242. btn_start.grid(row=0, column=0, padx=5) 
+243. btn_stop = tk.Button(frame_controls, text="■ Stop 
+Monitoring", command=stop_monitoring, width=18, bg="red", 
+fg="white") 
+244. btn_stop.grid(row=0, column=1, padx=5) 
+245.   
+246. frame_input = tk.Frame(root) 
+247. frame_input.pack(pady=10) 
+248. tk.Label(frame_input, text="Start (RFC3339):").grid(row=0, 
+column=0, padx=5, sticky='e') 
+249. entry_start = tk.Entry(frame_input, width=30) 
+250. entry_start.grid(row=0, column=1, padx=5) 
+251. tk.Label(frame_input, text="End (RFC3339):").grid(row=1, 
+column=0, padx=5, sticky='e') 
+252. entry_end = tk.Entry(frame_input, width=30) 
+253. entry_end.grid(row=1, column=1, padx=5) 
+254. btn_show = tk.Button(frame_input, text="Tampilkan Riwayat", 
+command=show_history) 
+255. btn_show.grid(row=0, column=2, rowspan=2, padx=10) 
+256.   
+257. canvas_label = tk.Label(root) 
+258. canvas_label.pack(pady=10) 
+259.   
+260. frame_table = tk.Frame(root) 
+261. frame_table.pack(pady=10, fill='both', expand=True) 
+262.   
+263. tk.Label(frame_table, text="Data Realtime Terbaru", 
+font=("Helvetica", 14)).pack() 
+264.   
+265. columns = ("Waktu", "Suhu (°C)", "Kelembaban (%)") 
+266.   
+267. tree_latest = ttk.Treeview(frame_table, columns=columns, 
+show='headings', height=8) 
+268. for col in columns: 
+269.     tree_latest.heading(col, text=col) 
+270.     tree_latest.column(col, anchor='center') 
+271. tree_latest.pack(fill='both', expand=True) 
+272.   
+273. frame_hist = tk.Frame(root) 
+274. frame_hist.pack(pady=10, fill='both', expand=True) 
+275.   
+276. tk.Label(frame_hist, text="Data Historis (Range)", 
+font=("Helvetica", 14)).pack() 
+277.   
+278. tree_history = ttk.Treeview(frame_hist, columns=columns, 
+show='headings', height=8) 
+279. for col in columns: 
+280.     
+281.     
+282. 
+tree_history.heading(col, text=col) 
+tree_history.column(col, anchor='center') 
+tree_history.pack(fill='both', expand=True) 
+283.   
+284. 
+root.mainloop() 
