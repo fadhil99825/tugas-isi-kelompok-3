@@ -1,0 +1,104 @@
+1.	use tokio_modbus::prelude::*;
+ 
+3.  use serde_json::json;
+5.  use tokio::io::AsyncWriteExt;
+ 
+7.  #[tokio::main]
+9.	// 🔹 1. Buka koneksi serial Modbus RTU
+ 
+11.	.parity(tokio_serial::Parity::None)
+13.	.data_bits(tokio_serial::DataBits::Eight)
+ 
+15.
+17.	let slave = Slave(0x01); // ID sensor (biasanya 1)
+ 
+19.
+
+21.	let regs = ctx.read_holding_registers(0x0000, 2).await?; // Sesuaikan alamat
+ 
+23.	let kelembaban = regs[1] as f32 / 10.0;
+25.	// 🔹 3. Buat objek JSON dari data
+ 
+27.	"sensor": "SHT20",
+29.	"kelembaban": kelembaban
+ 
+31.
+33.	println!("Data JSON: {}", json_str);
+ 
+35.	// 🔹 4. Kirim data ke TCP Server (misalnya 127.0.0.1:9000)
+37.	stream.write_all(json_str.as_bytes()).await?;
+ 
+39.
+41. }
+ 
+43.
+45. use std::io::{Read, Write};
+ 
+ 
+47. use serde::Deserialize;
+ 
+49.
+51. struct SensorData {
+ 
+53.	sensor_id: String,
+55.	process_stage: String,
+ 
+57.	humidity_percent: f64,
+59.
+ 
+61.	let mut buffer = [0; 1024];
+63.	match stream.read(&mut buffer) {
+ 
+65.	Ok(n) => {
+67.	println!("Received: {}", data);
+ 
+69.	if let Err(e) = write_to_influx_v2(&data) {
+71.	}
+ 
+73.	stream.write_all(b"OK\n").unwrap_or_default();
+75.	Err(_) => break,
+ 
+77.	}
+79.
+ 
+81.		let token = "9BuYLHAV7W_q1- V3HPHMOtv0xEQMGc24LRxD7FHVYgRDsUHlqD5mkuTblSlz8ZAmJ8sSqU nCtuAEdb2PoVxvZw==";
+83.	let bucket = "sensor";
+ 
+85.	"http://localhost:8086/api/v2/write?org={}&bucket={}&precision=s",
+87.	);
+ 
+89.	// Parse JSON string
+ 
+91.
+ 
+93.	let line = format!(
+
+95.	sensor.sensor_id.replace(" ", "\\ "),
+ 
+97.	sensor.process_stage.replace(" ", "\\ "),
+99.	sensor.humidity_percent,
+	100.	chrono::DateTime::parse_from_rfc3339(&sensor.timestamp)?.timest amp()
+	101.		);
+	102.		
+	103.		let client = Client::new();
+	104.		let res = client
+	105.		.post(&url)
+	106.		.header("Authorization", format!("Token {}", token))
+	107.		.header("Content-Type", "text/plain")
+	108.		.body(line)
+	109.		.send()?;
+	110.		
+	111.		if res.status().is_success() {
+	112.		Ok(())
+	113.		} else {
+	114.		Err(format!("Failed with status: {}", res.status()).into())
+	115.		}
+	116.	}	
+	117.		
+	118.	fn	main() -> std::io::Result<()> {
+119.	let listener = TcpListener::bind("0.0.0.0:7878")?;
+ 
+121.
+ 
+135.	</dyn></dyn>
+
