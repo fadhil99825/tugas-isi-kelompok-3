@@ -10,4 +10,5 @@ Anggota Kelompok:
 2. Zudan Rizky Aditya	(2042231007)
 3. Bagus Wijaksono	(2042231039)
 
-Dosen Pengampu:Ahmad Radhy, S.Si., M.Si Mata Kuliah: Interkoneksi Sistem Instrumentasi
+Dosen Pengampu:Ahmad Radhy, S.Si., M.Si
+Mata Kuliah: Interkoneksi Sistem Instrumentasi
