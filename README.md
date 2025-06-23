@@ -1,8 +1,5 @@
-# tugas-isi-kelompok-3
-LAPORAN TUGAS KELOMPOK 3
-
-Sistem Monitoring Suhu dan Kelembaban Pasca Panen Kopi untuk Menjaga Kualitas Fermentasi
-I.	Identitas Kelompok
+# Tugas-isi-kelompok-3
+Sistem Monitoring Temperatur dan Kelembapan pada Proses Fermentasi Kedelai untuk Optimasi Kualitas Tempe dan Oncom Hitam
 
 Nama Kelompok:
 Anggota Kelompok:	
