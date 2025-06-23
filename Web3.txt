@@ -1,0 +1,106 @@
+const contractAddress = "0x25b23ee3f98f8ee75150a6b76085c825e9c58909"; // Ganti dengan alamat kontrakmu
+const abiPath = "abi/SensorStorage.abi"; // Pastikan file ABI ini tersedia
+
+let chart;
+
+async function loadSensorData() {
+  const abiRes = await fetch(abiPath);
+  const abi = await abiRes.json();
+
+  const provider = new ethers.BrowserProvider(window.ethereum || "http://localhost:8545");
+  await provider.send("eth_requestAccounts", []);
+  const signer = await provider.getSigner();
+  const contract = new ethers.Contract(contractAddress, abi, signer);
+
+  const filter = contract.filters.DataStored();
+  const events = await contract.queryFilter(filter, 0, "latest");
+
+  const tableBody = document.querySelector("#sensorTable tbody");
+  tableBody.innerHTML = "";
+
+  const labels = [];
+  const temps = [];
+  const hums = [];
+
+  events.forEach((e) => {
+    const data = e.args;
+    const timeStr = new Date(Number(data.timestamp) * 1000).toLocaleString();
+    const temp = Number(data.temperature) / 100;
+    const hum = Number(data.humidity) / 100;
+
+    tableBody.innerHTML += `
+      <tr>
+        <td>${timeStr}</td>
+        <td>${data.sensorId}</td>
+        <td>${data.location}</td>
+        <td>${data.stage}</td>
+        <td>${temp.toFixed(2)}</td>
+        <td>${hum.toFixed(2)}</td>
+      </tr>
+    `;
+
+    labels.push(timeStr);
+    temps.push(temp);
+    hums.push(hum);
+  });
+
+  renderChart(labels, temps, hums);
+
+  // Deteksi berdasarkan data terakhir
+  if (events.length > 0) {
+    const latest = events[events.length - 1];
+    const latestTemp = Number(latest.args.temperature) / 100;
+    const latestHum = Number(latest.args.humidity) / 100;
+    deteksiProduksi(latestTemp, latestHum);
+  }
+}
+
+function renderChart(labels, temps, hums) {
+  const ctx = document.getElementById('chart').getContext('2d');
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Temperature (°C)",
+          data: temps,
+          borderColor: 'rgba(255, 99, 132, 1)',
+          fill: false
+        },
+        {
+          label: "Humidity (%)",
+          data: hums,
+          borderColor: 'rgba(54, 162, 235, 1)',
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+function deteksiProduksi(temp, hum) {
+  const setTemp = parseFloat(document.getElementById("setTemp").value);
+  const setHum = parseFloat(document.getElementById("setHum").value);
+  const hasil = document.getElementById("hasilDeteksi");
+
+  if (temp >= 25 && hum >= 60) {
+    hasil.textContent = "Produksi Tempe ✅";
+    hasil.style.color = "green";
+  } else if (temp >= 24 && hum >= 48) {
+    hasil.textContent = "Produksi Oncom Hitam ✅";
+    hasil.style.color = "blue";
+  } else {
+    hasil.textContent = "Data tidak cocok dengan produksi tempe atau oncom hitam.";
+    hasil.style.color = "red";
+  }
+}
